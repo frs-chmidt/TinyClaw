@@ -1,4 +1,4 @@
-def write_user(self, log: RichLog, text: str) -> None:
+def write_user(log: RichLog, text: str) -> None:
         """
         Helper function for messages by the user
 
@@ -11,7 +11,7 @@ def write_user(self, log: RichLog, text: str) -> None:
         log.write(f"[#c0caf5]{text}[/]\n")
         log.scroll_end(animate=False)
 
-def write_system(self, log: RichLog, text: str):
+def write_system(log: RichLog, text: str):
     """
     Helper function for system messages
 
@@ -23,7 +23,7 @@ def write_system(self, log: RichLog, text: str):
     log.write(f"[dim]{text}[/dim]\n")
     log.scroll_end(animate=False)
 
-def write_assistant(self, log: RichLog, text: str):
+def write_assistant(log: RichLog, text: str):
     """
     Helper function for messages by the llm ("assistant")
 

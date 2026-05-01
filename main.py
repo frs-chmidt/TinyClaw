@@ -18,7 +18,7 @@ from typing_extensions import final
 
 from auth.oauth import resolve_credentials
 from custom_types import CommandHistory, McpConfig, OllamaTool, Mode
-import chat_interface.helpers
+from chat_interface.helpers import write_user, write_system, write_assistant    
 
 
 SERVER_SCRIPT = Path(__file__).parent / "mcp_server.py"
@@ -150,17 +150,17 @@ class ChatApp(App):
         loading_label = self.query_one("#loadingStatus", Label)
         loading_label.display = False
 
-        self.write_system(log, ASCII_LOGO)
+        write_system(log, ASCII_LOGO)
 
         if self.debug_active:
-            self.write_system(log, "Debug mode is active. Expect detailed logs.")
+            write_system(log, "Debug mode is active. Expect detailed logs.")
 
         if tool_names:
-            self.write_system(log, f"Succesfully loaded tools: {', '.join(tool_names)}")
+            write_system(log, f"Succesfully loaded tools: {', '.join(tool_names)}")
         else:
-            self.write_system(log, "No tools loaded (add .py files to plugins/)")
+            write_system(log, "No tools loaded (add .py files to plugins/)")
 
-        self.write_system(log, f"{self.TITLE} is ready for you! Press 'i' to interact.")
+        write_system(log, f"{self.TITLE} is ready for you! Press 'i' to interact.")
 
         self.update_status()
 
@@ -210,7 +210,7 @@ class ChatApp(App):
         event.input.value = ""
 
         log = self.query_one("#log", RichLog)
-        self.write_user(log, text)
+        write_user(log, text)
         self.history.append({"role": "user", "content": text})
 
         # Run the agentic loop in a worker so the UI stays responsive
@@ -280,8 +280,8 @@ class ChatApp(App):
         for t in self.tools:
             fn = t["function"]
             tools_view.write(f"[bold #bb9af7]{fn['name']}[/]")
-            self.write_system(tools_view, fn["description"])
-            self.write_system(tools_view, json.dumps(fn["parameters"], indent=2))
+            write_system(tools_view, fn["description"])
+            write_system(tools_view, json.dumps(fn["parameters"], indent=2))
 
         self.update_status()
 
@@ -306,11 +306,11 @@ class ChatApp(App):
             if not text:
                 return
             if role == "assistant":
-                self.write_assistant(log, text)
+                write_assistant(log, text)
             elif role == "user":
-                self.write_user(log, text)
+                write_user(log, text)
             else:  # system / tool
-                self.write_system(log, text)
+                write_system(log, text)
 
         # The agent expects the latest user message already in history
         # (in on_input_submitted we already append to self.history, let's pass it)
