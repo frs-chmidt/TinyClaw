@@ -7,7 +7,8 @@ from contextlib import AsyncExitStack
 from pathlib import Path
 from typing import override
 
-import ollama
+from llm.llm import LLMClient
+from agent.agent import Agent
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from textual.app import App, ComposeResult
@@ -18,7 +19,7 @@ from typing_extensions import final
 from auth.oauth import resolve_credentials
 from custom_types import CommandHistory, McpConfig, OllamaTool, Mode
 
-MODEL = "qwen2.5:7b"  # TODO: change to other ollama models for testing
+MODEL = "qwen3.5:4b"  # TODO: change to other ollama models for testing
 SERVER_SCRIPT = Path(__file__).parent / "mcp_server.py"
 MCP_CONFIG_PATH = Path(__file__).parent / "mcp.json"
 
@@ -76,6 +77,16 @@ class ChatApp(App):
         super().__init__(**kwargs)
         self.tool_registry = tool_registry
         self.tools = tools
+        self.llm_client = LLMClient(
+            model=MODEL,
+            system_prompt=SYSTEM_PROMPT,
+        )
+        self.agent = Agent(
+            llm_client=self.llm_client,
+            tool_registry=self.tool_registry,
+            tools=self.tools,
+            debug=args.debug,
+        )
         self.history: list[CommandHistory] = []
         self.mode = Mode.NORMAL
         self.debug_active = args.debug  # pyright: ignore[reportAny]
@@ -315,107 +326,30 @@ class ChatApp(App):
         self.history.clear()
         self.query_one("#log", RichLog).clear()
 
-    async def _agent_turn(self, log: RichLog) -> None:
-        """
-        Agentic loop: call Ollama, handle tool calls, repeat.
-        """
 
+
+    async def _agent_turn(self, log: RichLog) -> None:
+        """Now just delegates to the agent, converting RichLog writes to the callback."""
         self.action_enter_normal()
         self.start_loading()
 
-        if self.debug_active:
-            self.write_system(log, "Starting communication with Agent.")
+        # Async helper to call the correct RichLog method
+        async def log_callback(role: str, text: str):
+            if not text:
+                return
+            if role == "assistant":
+                self.write_assistant(log, text)
+            elif role == "user":
+                self.write_user(log, text)
+            else:  # system / tool
+                self.write_system(log, text)
 
-        for step in range(
-            MAX_STEPS
-        ):  # loop until finished, but only for max MAX_STEPS to avoid infinite loop
-            if self.debug_active:
-                self.write_system(log, f"Communication iteration {step} with Agent")
-
-            # Send request to ollama and wait for response
-            response = await ollama.AsyncClient().chat(
-                model=MODEL,
-                messages=[{"role": "system", "content": SYSTEM_PROMPT}] + self.history,
-                tools=self.tools or None,
-            )
-            msg = response.message
-
-            if self.debug_active:
-                self.write_system(log, str(msg))
-
-            self.history.append(msg)  # pyright: ignore[reportArgumentType]
-
-            # Print any text content
-            if msg.content:
-                self.write_assistant(log, msg.content)
-
-            # No tool calls → we're done
-            if not msg.tool_calls:
-                break
-
-            # Handle tool calls asynchronously
-            tasks = [self._execute_tool(call, log) for call in msg.tool_calls]
-
-            results = await asyncio.gather(*tasks)
-
-            # retrieve all results and append to history
-            for res in results:
-                self.history.append(res)
-
-            self.write_system(log, "All tool calls completed")
-
-            if self.debug_active and step == (MAX_STEPS - 1):
-                self.write_system(log, "Max steps reached. Stopping.")
+        # The agent expects the latest user message already in history
+        # (in on_input_submitted we already append to self.history, let's pass it)
+        last_user_msg = self.history[-1]["content"]
+        await self.agent.turn(last_user_msg, log_callback)
 
         self.stop_loading()
-
-    async def _execute_tool(
-        self, call: ollama.Message.ToolCall, log: RichLog
-    ) -> CommandHistory:
-        """
-        Executes a given tool as requested by the LLM
-
-        Args:
-            call: call object returned by LLM
-            log: log to print the log to
-
-        Returns: Response of service. (CommandHistory type)
-
-        """
-        name = call.function.name
-        args = call.function.arguments
-
-        self.write_system(log, f"Using tool: {name} ({json.dumps(args)})")
-
-        session = self.tool_registry.get(name)
-        if session is None:
-            self.write_system(log, f"{name} → unknown tool, skipping")
-            return {"role": "tool", "content": f"Error: unknown tool '{name}'"}
-
-        try:
-            result = await session.call_tool(name, args)  # pyright: ignore[reportArgumentType]
-
-            result_text = (
-                result.content[0].text
-                if result.content and hasattr(result.content[0], "text")
-                else str(result.content)
-            )
-
-            if self.debug_active:
-                self.write_system(log, f"{name} → {result_text}")
-
-            return {
-                "role": "tool",
-                "content": result_text,
-            }
-
-        except Exception as e:
-            self.write_system(log, f"{name} failed: {e}")
-            return {
-                "role": "tool",
-                "content": f"Error: {e}",
-            }
-
 
 async def run(args: Namespace) -> None:
     """
