@@ -19,10 +19,14 @@ from typing_extensions import final
 from auth.oauth import resolve_credentials
 from custom_types import CommandHistory, McpConfig, OllamaTool, Mode
 
-MODEL = "qwen3.5:4b"  # TODO: change to other ollama models for testing
+
 SERVER_SCRIPT = Path(__file__).parent / "mcp_server.py"
 MCP_CONFIG_PATH = Path(__file__).parent / "mcp.json"
 
+MAX_STEPS = 8
+SYSTEM_PROMPT = "You are a helpful assistant. Use tools when they help."
+PROVIDER = "openrouter"  # or "ollama" or "google"
+MODEL = "openai/gpt-oss-120b:free"  #"qwen3.5:4b"
 
 def load_mcp_config(config_path: Path = MCP_CONFIG_PATH) -> McpConfig:
     if not config_path.exists():
@@ -34,8 +38,6 @@ def load_mcp_config(config_path: Path = MCP_CONFIG_PATH) -> McpConfig:
     return data
 
 
-MAX_STEPS = 8
-SYSTEM_PROMPT = "You are a helpful assistant. Use tools when they help."
 
 ASCII_LOGO = """
 ████████╗██╗███╗   ██╗██╗   ██╗ ██████╗██╗      █████╗ ██╗    ██╗
@@ -78,6 +80,7 @@ class ChatApp(App):
         self.tool_registry = tool_registry
         self.tools = tools
         self.llm_client = LLMClient(
+            provider=PROVIDER,
             model=MODEL,
             system_prompt=SYSTEM_PROMPT,
         )
