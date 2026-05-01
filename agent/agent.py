@@ -59,16 +59,38 @@ class Agent:
             if self.debug and step == MAX_STEPS - 1:
                 await log_callback("system", "Max steps reached. Stopping.")
 
-    async def _execute_tool(self, call, log_callback) -> CommandHistory:
-        name = call.function.name
-        args = call.function.arguments
+    async def _execute_tool(self, call: dict, log_callback) -> CommandHistory:
+        """
+        Execute a tool call and return a message dict that includes `tool_call_id`.
+        
+        Args:
+            call: A tool call dict like:
+                {
+                    'type': 'function',
+                    'function': {'name': 'calculate', 'arguments': '{"expression": "100 * 5"}'},
+                    'id': 'chatcmpl-tool-a7ffe499f695f251'
+                }
+        """
+        tool_call_id = call['id']          # extract the ID
+        name = call['function']['name']
+        args_str = call['function']['arguments']
+
+        # Parse arguments (they may be a JSON string)
+        try:
+            args = json.loads(args_str) if isinstance(args_str, str) else args_str
+        except json.JSONDecodeError:
+            args = args_str
 
         await log_callback("system", f"Using tool: {name} ({json.dumps(args)})")
 
         session = self.tool_registry.get(name)
         if session is None:
             await log_callback("system", f"{name} → unknown tool, skipping")
-            return {"role": "tool", "content": f"Error: unknown tool '{name}'"}
+            return {
+                "role": "tool",
+                "tool_call_id": tool_call_id,
+                "content": f"Error: unknown tool '{name}'"
+            }
 
         try:
             result = await session.call_tool(name, args)
@@ -79,7 +101,15 @@ class Agent:
             )
             if self.debug:
                 await log_callback("system", f"{name} → {result_text}")
-            return {"role": "tool", "content": result_text}
+            return {
+                "role": "tool",
+                "tool_call_id": tool_call_id,
+                "content": result_text
+            }
         except Exception as e:
             await log_callback("system", f"{name} failed: {e}")
-            return {"role": "tool", "content": f"Error: {e}"}
+            return {
+                "role": "tool",
+                "tool_call_id": tool_call_id,
+                "content": f"Error: {e}"
+            }

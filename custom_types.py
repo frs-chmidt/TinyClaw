@@ -1,4 +1,4 @@
-from typing import Any, NotRequired, TypedDict
+from typing import Any, NotRequired, Optional, TypedDict
 from enum import Enum
 
 
@@ -16,6 +16,7 @@ class OllamaTool(TypedDict):
 class CommandHistory(TypedDict):
     role: str
     content: str
+    tool_call_id: Optional[str] 
 
 
 class Mode(str, Enum):
