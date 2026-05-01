@@ -7,7 +7,7 @@ from mcp import ClientSession
 from llm.llm import LLMClient
 from custom_types import CommandHistory, OllamaTool  # adjust imports as needed
 
-MAX_STEPS = 8
+from config import MAX_STEPS
 
 class Agent:
     """Runs the tool‑using conversation loop, independent of the UI."""
@@ -28,18 +28,23 @@ class Agent:
     async def turn(
         self,
         user_message: str,
-        log_callback: Callable[[str, str], Awaitable[None]],  # e.g., async def log(role, text)
+        log_callback: Callable[[str, str], Awaitable[None]],
+        stop_event: asyncio.Event | None = None,          # ← new parameter
     ) -> None:
         """
         Process one user message through the full agent loop.
-        All output (assistant replies, tool calls, debug info) goes via `log_callback`.
+        The loop checks `stop_event` before each new LLM call.
         """
         self.history.append({"role": "user", "content": user_message})
-        await log_callback("system", "Starting agent turn…" if self.debug else "")
+        if self.debug:
+            await log_callback("system", "Starting agent turn…")
 
         for step in range(MAX_STEPS):
+            # Co‑operative cancellation – exit the loop immediately
+            if stop_event is not None and stop_event.is_set():
+                break
+
             msg = await self.llm.chat(self.history, self.tools)
-            # Convert LLMMessage to dict for history
             msg_dict = {"role": msg.role, "content": msg.content}
             self.history.append(msg_dict)
 
@@ -49,15 +54,13 @@ class Agent:
             if not msg.tool_calls:
                 break
 
-            # Execute all tool calls concurrently
             results = await asyncio.gather(
                 *[self._execute_tool(call, log_callback) for call in msg.tool_calls]
             )
             self.history.extend(results)
             await log_callback("system", "All tool calls completed")
 
-            if self.debug and step == MAX_STEPS - 1:
-                await log_callback("system", "Max steps reached. Stopping.")
+
 
     async def _execute_tool(self, call: dict, log_callback) -> CommandHistory:
         """

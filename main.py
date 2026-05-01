@@ -91,6 +91,8 @@ class ChatApp(App):
         self.loading = False
         self.spinner_frame = 0
         self.spinner_task = None
+        
+        self.loop_counter = 0
 
     
 
@@ -290,12 +292,23 @@ class ChatApp(App):
 
 
     async def _agent_turn(self, log: RichLog) -> None:
-        """Now just delegates to the agent, converting RichLog writes to the callback."""
+        """Run one agent turn, stopping cooperatively when MAX_STEPS is exceeded."""
         self.action_enter_normal()
         self.start_loading()
 
-        # Async helper to call the correct RichLog method
-        async def log_callback(role: str, text: str):
+        stop_event = asyncio.Event()   # one‑shot signal for this turn
+        # Reset the turn‑level counter (counts log callbacks)
+        self.loop_counter = 0
+
+        async def log_callback(role: str, text: str) -> None:
+            self.loop_counter += 1
+            if self.loop_counter > MAX_STEPS:
+                # Signal the agent to stop NOW
+                stop_event.set()
+                write_assistant(log, "[bold red]Max steps reached, stopping.[/]")
+                # Optionally force the UI back to normal mode immediately
+                self.action_enter_normal()
+                return  # the agent will see the event at next check
             if not text:
                 return
             if role == "assistant":
@@ -305,12 +318,13 @@ class ChatApp(App):
             else:  # system / tool
                 write_system(log, text)
 
-        # The agent expects the latest user message already in history
-        # (in on_input_submitted we already append to self.history, let's pass it)
         last_user_msg = self.history[-1]["content"]
-        await self.agent.turn(last_user_msg, log_callback)
+        # Pass the stop_event to the agent
+        await self.agent.turn(last_user_msg, log_callback, stop_event=stop_event)
 
+        # After the turn ends (either naturally or aborted)
         self.stop_loading()
+        self.loop_counter = 0  # safe reset
 
 async def run(args: Namespace) -> None:
     """
