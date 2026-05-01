@@ -39,7 +39,9 @@ class Agent:
 
         for step in range(MAX_STEPS):
             msg = await self.llm.chat(self.history, self.tools)
-            self.history.append(msg)
+            # Convert LLMMessage to dict for history
+            msg_dict = {"role": msg.role, "content": msg.content}
+            self.history.append(msg_dict)
 
             if msg.content:
                 await log_callback("assistant", msg.content)
