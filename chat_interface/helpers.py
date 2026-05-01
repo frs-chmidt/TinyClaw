@@ -1,3 +1,6 @@
+
+
+
 def write_user(log: RichLog, text: str) -> None:
         """
         Helper function for messages by the user
@@ -32,6 +35,6 @@ def write_assistant(log: RichLog, text: str):
         text: text to print
     """
 
-    log.write(f"\n[bold #9ece6a]{self.TITLE}[/bold #9ece6a]")
+    log.write(f"\n[bold #9ece6a]TINYCLAW[/bold #9ece6a]")
     log.write(f"[#c0caf5]{text}[/]\n")
     log.scroll_end(animate=False)

@@ -20,14 +20,16 @@ from auth.oauth import resolve_credentials
 from custom_types import CommandHistory, McpConfig, OllamaTool, Mode
 from chat_interface.helpers import write_user, write_system, write_assistant    
 
+from config import (
+    ASCII_LOGO,
+    MODEL,
+    MCP_CONFIG_PATH,
+    PROVIDER,
+    SERVER_SCRIPT,
+    SYSTEM_PROMPT,
+    MAX_STEPS
+)
 
-SERVER_SCRIPT = Path(__file__).parent / "mcp_server.py"
-MCP_CONFIG_PATH = Path(__file__).parent / "mcp.json"
-
-MAX_STEPS = 8
-SYSTEM_PROMPT = "You are a helpful assistant. Use tools when they help."
-PROVIDER = "openrouter"  # or "ollama" or "google"
-MODEL = "openai/gpt-oss-120b:free"  #"qwen3.5:4b"
 
 def load_mcp_config(config_path: Path = MCP_CONFIG_PATH) -> McpConfig:
     if not config_path.exists():
@@ -39,15 +41,6 @@ def load_mcp_config(config_path: Path = MCP_CONFIG_PATH) -> McpConfig:
     return data
 
 
-
-ASCII_LOGO = """
-████████╗██╗███╗   ██╗██╗   ██╗ ██████╗██╗      █████╗ ██╗    ██╗
-╚══██╔══╝██║████╗  ██║╚██╗ ██╔╝██╔════╝██║     ██╔══██╗██║    ██║
-   ██║   ██║██╔██╗ ██║ ╚████╔╝ ██║     ██║     ███████║██║ █╗ ██║
-   ██║   ██║██║╚██╗██║  ╚██╔╝  ██║     ██║     ██╔══██║██║███╗██║
-   ██║   ██║██║ ╚████║   ██║   ╚██████╗███████╗██║  ██║╚███╔███╔╝
-   ╚═╝   ╚═╝╚═╝  ╚═══╝   ╚═╝    ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝ 
-"""
 
 
 @final
