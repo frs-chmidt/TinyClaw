@@ -1,10 +1,18 @@
 # Setup
 
+You can use a local LLM - install ollama qwen3.5:4b
+
+Or use a free hosted LLM - from https://openrouter.ai
+Do this by 1st creating an account. 2nd click 'Get API Key'. 3rd set Credit limit to 0. copy API Key. create .env in same dir as main and add API Keys as displayed in .env.example
+
+Either way update PROVIDER and MODEL in config.py (choose a currently free model from https://openrouter.ai if this option is used)
+
+
+Start TinyClaw by
+
 uv run main.py
 
 Start with -d flag for more detailed debug output
-
-create .env in same dir as main and add API Keys as displayed in .env.example
 
 # Improvement ideas
 
